@@ -1,0 +1,14 @@
+# CONTROLE NEGATIVO: com taxa de aprendizado zero os pesos nunca mudam.
+# Se o pipeline for honesto, a acuracia fica no nivel do acaso (~10 % no MNIST)
+# em TODAS as epocas. Se aparecer aprendizado aqui, ha algo errado (vazamento
+# de dados, metrica errada, resultado que nao vem do treino).
+# Custo: ~1 min.
+name: controle_negativo_lr0
+dataset: {name: mnist, val_size: 0}
+eval_on: test
+model: {name: mlp, hidden: 1000}
+train: {epochs: 3, batch_size: 100, target: 0.98, clip: 0.0}
+seeds: [0, 1, 2]
+optimizers:
+  sgd_lr0: {name: sgd, lr: 0.0, momentum: 0.9}
+  pid_lr0: {name: sgd_pid, lr: 0.0, momentum: 0.9, Kp: 1.0, Ki: 3.0, Kd: 100.0}

@@ -1,0 +1,453 @@
+% =============================================================================
+% Relatorio de andamento: replicacao de An et al. (2018) e analise de estabilidade
+% Figuras e tabelas sao geradas por:  python scripts/report_assets.py [...]
+% (ver secao "Como conferir os resultados"). Nada aqui e digitado a partir de
+% graficos: os numeros vem dos arquivos de resultado.
+% =============================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{enumitem}
+\usepackage[section]{placeins}   % figuras nao saem da propria secao
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parskip}{4pt}
+
+\definecolor{pend}{HTML}{8A8985}
+\definecolor{pendfundo}{HTML}{F3F2EF}
+
+% Caixa cinza para o que ainda esta rodando
+\newcommand{\pendente}[1]{%
+  \par\noindent\colorbox{pendfundo}{\parbox{\dimexpr\linewidth-2\fboxsep}{%
+    \small\color{pend}\textbf{Pendente:} #1}}\par}
+
+% Inclui a figura se ela ja foi gerada; senao mostra o que falta rodar
+\newcommand{\figura}[3]{%
+  \IfFileExists{figuras/#1.pdf}%
+    {\includegraphics[width=#2\linewidth]{figuras/#1.pdf}}%
+    {\pendente{figura \texttt{\detokenize{#1}} ainda não gerada. #3}}}
+
+\title{\textbf{Leis de aprendizado sob a ótica de controle:\\
+replicação de An et al.\ (2018) e análise de estabilidade em tempo discreto}\\[4pt]
+\large Relatório de andamento --- Projeto Final de Curso I}
+\author{Laura Inês Freitas Campos\\
+\small Orientador: Prof.\ Dr.\ Everthon de Souza Oliveira\\
+\small Departamento de Engenharia Elétrica --- CEFET-MG}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Este relatório descreve a replicação dos resultados de An et al.\ (2018), que
+propõem tratar o treinamento de redes neurais como uma malha de controle e
+acrescentar um termo derivativo (D) ao gradiente descendente com momento.
+Replicamos o experimento do artigo com a rede MLP no MNIST, com 10 repetições, e o
+exemplo de duas variáveis usado pelos autores para ilustrar o efeito do termo D.
+A vantagem do método sobre o momento foi reproduzida, mas ela praticamente não
+depende do termo D. Encontramos também diferenças entre o texto do artigo e o
+código publicado pelos autores, entre elas o \emph{sinal} do termo D. Para explicar
+esses resultados, escrevemos cada lei de aprendizado como um sistema linear em
+tempo discreto. A posição dos polos previu corretamente, nos 14 casos testados,
+quando o treinamento converge e quando diverge.
+\end{abstract}
+
+% =============================================================================
+\section{Objetivo}
+
+O orientador pediu a replicação de An et al.\ (2018) como ponto de partida do
+PFC. O objetivo foi verificar três coisas:
+\begin{enumerate}
+  \item se os resultados do artigo se reproduzem com o código e os dados disponíveis;
+  \item se o texto do artigo e o código público descrevem o mesmo algoritmo;
+  \item se a leitura ``otimizador como controlador'' explica o comportamento
+        observado, que é o tema central do PFC (objetivo específico b da proposta).
+\end{enumerate}
+
+% =============================================================================
+\section{A ideia, em linguagem simples}
+
+Treinar uma rede neural é ajustar seus pesos para diminuir o erro. A cada passo,
+o \textbf{gradiente} indica para que lado o erro aumenta, e o algoritmo dá um passo
+no sentido contrário. O tamanho desse passo é a \textbf{taxa de aprendizado}.
+
+Visto como engenheiro de controle, isso é uma \textbf{malha fechada}: o gradiente
+faz o papel do \emph{sinal de erro}, a regra que transforma o gradiente em passo
+faz o papel do \emph{controlador}, e a função de erro da rede é a \emph{planta}. Daí
+a correspondência proposta por An et al.:
+
+\begin{center}
+\begin{tabular}{llp{6.2cm}}
+\toprule
+Algoritmo & Ação de controle & O que o passo usa \\
+\midrule
+SGD (gradiente descendente) & P (proporcional) & só o gradiente atual \\
+SGD com momento & PI (prop.-integral) & também a soma ponderada dos gradientes passados \\
+PID de An et al. & PID & também a \emph{variação} do gradiente \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+O argumento do artigo: o momento, por acumular o passado (ação integral), passa do
+ponto e oscila em torno do mínimo, assim como um controlador PI com ganho
+integral alto. Um termo derivativo funcionaria como um \textbf{amortecedor},
+reduzindo essa oscilação, que os autores chamam de \emph{overshoot} (sobressinal).
+
+% =============================================================================
+\section{O que foi feito}
+
+\begin{itemize}
+  \item \textbf{Ambiente de experimentos.} Repositório público
+        (\url{https://github.com/laurafreitascampos/otimizadores-controle}) em
+        Python/PyTorch, que aproveita os otimizadores do trabalho do Laboratório de IA.
+        Cada experimento é descrito por um arquivo de configuração. Cada
+        execução grava num arquivo \texttt{results.json} a configuração usada, a
+        versão exata do código (\emph{commit} do git), o hardware e as curvas de
+        cada repetição.
+  \item \textbf{Testes de equivalência.} Antes de qualquer experimento, verificamos
+        automaticamente que o PID com só o termo P reproduz o SGD do PyTorch, e
+        que com só o termo I reproduz o SGD com momento, passo a passo, com
+        diferença menor que $10^{-10}$. Esses testes confirmam no código as
+        afirmações das Seções~3.2 e 3.3 do artigo.
+  \item \textbf{Protocolo justo.} Todos os algoritmos comparados partem dos
+        \emph{mesmos pesos iniciais} e veem os dados \emph{na mesma ordem}. Cada
+        comparação é repetida com 10 \textbf{sementes} (cada semente fixa um sorteio
+        diferente de pesos iniciais e de ordem dos dados), e reportamos
+        média~$\pm$~desvio padrão.
+  \item \textbf{Reprodutibilidade.} O experimento de duas variáveis deu resultados
+        idênticos, até a última casa decimal, em Windows (com placa de vídeo) e em Linux.
+\end{itemize}
+
+% =============================================================================
+\section{Resultado 1: o exemplo de duas variáveis e o sinal do termo D}
+
+Os autores ilustram o efeito do termo D (Figura~2 do artigo) numa ``tigela''
+alongada, $f(x_1,x_2) = 0{,}1\,x_1^2 + 2\,x_2^2$, partindo de $(-10,-10)$. A direção
+$x_2$ é íngreme (curvatura alta) e é onde o momento oscila. Rodamos o mesmo
+exemplo com o termo D escrito \emph{exatamente como na Eq.~(10) do artigo} e
+também com o sinal trocado (Fig.~\ref{fig:toy}).
+
+\begin{figure}[!htbp]
+  \centering
+  \figura{toy_resposta_x2}{1.0}{Rode \texttt{python scripts/report\_assets.py}.}
+  \caption{Resposta no tempo da coordenada $x_2$ no exemplo de duas variáveis.
+  (a) Com o termo D somado, como escrito na Eq.~(10), o sobressinal \emph{aumenta}
+  e, para $K_d \geq 0{,}5$, o algoritmo diverge; nesses casos,
+  já no primeiro passo ele se afasta do mínimo. (b) Com o sinal trocado, o termo D amortece a oscilação:
+  com $K_d = -0{,}93$ o sobressinal desaparece. Taxa de aprendizado
+  $0{,}01$ e momento $0{,}9$; o artigo não informa esses valores para esse exemplo.}
+  \label{fig:toy}
+\end{figure}
+
+\textbf{O que isso mostra.} O comportamento da Figura~2 do artigo (menos
+sobressinal com o termo D) só aparece com o sinal \emph{oposto} ao da Eq.~(10).
+É exatamente o sinal que o código público dos autores usa: lá o termo D entra
+\emph{subtraindo}, junto com o gradiente. Em linguagem de controle, o amortecedor
+precisa empurrar \emph{contra} o movimento; com o sinal do texto, ele empurra
+\emph{a favor} e injeta energia no sistema.
+
+% =============================================================================
+\section{Resultado 2: replicação da Figura 4 (MLP no MNIST)}
+
+\textbf{Configuração} (igual à do artigo): rede com uma camada oculta de 1000
+neurônios, base MNIST de dígitos manuscritos, 20 épocas (uma \textbf{época} é uma
+passada completa pelos dados de treino), taxa de aprendizado $0{,}01$, momento
+$0{,}9$. Comparamos três algoritmos:
+\begin{itemize}
+  \item o \textbf{SGD com momento} dos autores;
+  \item o \textbf{PID como no código dos autores} ($K_i = 3$, $K_d = 100$);
+  \item o \textbf{mesmo PID com $K_d = 0$}, isto é, sem o termo D. Este último é um
+        controle que acrescentamos para isolar o efeito do termo D.
+\end{itemize}
+
+\IfFileExists{tabelas/fig4.tex}{%
+\begin{table}[!htbp]
+  \centering\small
+  \caption{Replicação da Figura~4: acurácia no conjunto de teste após 20 épocas e
+  número de épocas até atingir 98\,\%. Média $\pm$ desvio padrão amostral entre
+  sementes; $\Delta$ e intervalo de confiança de 95\,\% calculados semente a semente
+  (pareado), contra o SGD com momento.}
+  \label{tab:fig4}
+  \input{tabelas/fig4.tex}
+\end{table}
+}{%
+\begin{table}[!htbp]
+  \centering\small
+  \caption{Replicação da Figura~4 (10 sementes, 20 épocas, avaliação no conjunto de
+  teste). Valores transcritos do resumo impresso pelo \texttt{train.py};
+  desvio padrão com divisor $n$. A tabela com testes estatísticos será gerada
+  a partir dos arquivos de resultado.}
+  \label{tab:fig4}
+  \begin{tabular}{llcc}
+    \toprule
+    Lote & Algoritmo & Acurácia final (\%) & Épocas até 98\,\% \\
+    \midrule
+    100 (código) & SGD com momento & $98{,}25 \pm 0{,}07$ & $6{,}8$ \\
+                 & PID ($K_d = 100$) & $98{,}44 \pm 0{,}03$ & $4{,}1$ \\
+                 & PID sem D ($K_d = 0$) & $98{,}43 \pm 0{,}06$ & $4{,}4$ \\
+    \midrule
+    128 (artigo) & SGD com momento & $98{,}23 \pm 0{,}06$ & $8{,}6$ \\
+                 & PID ($K_d = 100$) & $98{,}40 \pm 0{,}05$ & $4{,}3$ \\
+                 & PID com $K_d$ da Eq.~(14) & \multicolumn{2}{c}{divergiu nas 10 sementes} \\
+    \midrule
+    \multicolumn{2}{l}{\emph{Registro dos autores (1 execução, lote 100)}} & & \\
+                 & SGD com momento & $97{,}99$ & --- \\
+                 & PID & $98{,}26$ & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+}
+
+\begin{figure}[!htbp]
+  \centering
+  \figura{fig4_mnist}{1.0}{Rode \texttt{report\_assets.py -{}-fig4 <results.json>}
+  com o resultado da Fig.~4.}
+  \caption{Replicação da Figura~4. (a) Acurácia de teste; (b) erro de treino, em
+  escala logarítmica. Linha: média; faixa: $\pm$ um desvio padrão entre sementes.}
+  \label{fig:fig4}
+\end{figure}
+
+\textbf{O que isso mostra.}
+\begin{itemize}
+  \item \textbf{A vantagem do PID se reproduz.} Ele termina com cerca de
+        0,2 ponto percentual a mais de acurácia e chega a 98\,\% em cerca de 4
+        épocas, contra 7 a 9 do momento. Nossos valores ficam ligeiramente acima
+        dos registros dos autores, e com 10 repetições em vez de uma.
+  \item \textbf{Mas a vantagem não vem do termo D.} Sem o termo D, o resultado
+        é praticamente o mesmo (98,44\,\% contra 98,43\,\%). A diferença é muito
+        menor que a variação entre sementes.
+  \item \textbf{O ajuste de $K_d$ proposto no texto não funciona como escrito.} O
+        valor dado pela Eq.~(14) para taxa de aprendizado $0{,}01$ é
+        $K_d \approx 1855$, enquanto o código usa um $K_d$ efetivo de~1. Aplicado na
+        forma da Eq.~(10), esse valor diverge em todas as sementes.
+  \item \textbf{A métrica de ``épocas'' depende do tamanho do lote.} O mesmo
+        momento leva 6,8 épocas com lote 100 e 8,6 com lote 128, porque lotes maiores
+        significam menos passos por época. Comparações em épocas precisam fixar o lote.
+\end{itemize}
+
+% =============================================================================
+\section{Resultado 3: análise de estabilidade em tempo discreto}
+
+\subsection{A ideia}
+
+Perto de um mínimo, o erro da rede se parece com uma tigela: em cada direção,
+$f \approx \tfrac{1}{2}\,a\,\theta^2$, em que $a$ é a \textbf{curvatura} daquela
+direção (quão íngreme ela é). O gradiente é então $a\,\theta$, e cada lei de
+aprendizado vira um \textbf{sistema linear em tempo discreto}
+\[
+  \mathbf{x}_{t+1} = A\,\mathbf{x}_t ,
+\]
+em que o vetor $\mathbf{x}$ guarda o peso e as ``memórias'' do algoritmo (a
+velocidade do momento, os termos I e D). Como em qualquer sistema discreto, quem
+decide o comportamento são os \textbf{polos} de $A$ (seus autovalores):
+\begin{itemize}
+  \item todos dentro do círculo unitário ($|z|<1$): converge;
+  \item algum fora ($|z|>1$): diverge;
+  \item polos complexos: converge oscilando, com sobressinal.
+\end{itemize}
+Resumimos tudo no \textbf{raio espectral} $\rho$, o maior $|z|$: quanto menor,
+mais rápido converge. Para o SGD com momento, por exemplo,
+\[
+  A = \begin{bmatrix} 1-h & \alpha \\ -h & \alpha \end{bmatrix},
+  \qquad z^2 - (1+\alpha-h)\,z + \alpha = 0,
+  \qquad h = \text{(taxa de aprendizado)} \times a .
+\]
+Essas matrizes são \emph{exatas} para funções quadráticas, e não uma aproximação. Um
+teste automático confirma que elas reproduzem, passo a passo, os mesmos
+algoritmos usados no MNIST.
+
+\subsection{Os regimes do momento}
+
+\begin{figure}[!htbp]
+  \centering
+  \figura{regimes_momentum}{1.0}{Rode \texttt{python scripts/report\_assets.py}.}
+  \caption{Regimes do SGD com momento em função de $h$ (passo $\times$ curvatura) e do
+  coeficiente de momento $\alpha$. Fronteiras calculadas analiticamente:
+  $h = (1\mp\sqrt{\alpha})^2$ separa polos reais de complexos e $h = 2(1+\alpha)$ é o
+  limite de estabilidade. No exemplo de duas variáveis, $x_1$ cai na região sem
+  oscilação e $x_2$ na região oscilatória, como observado.}
+  \label{fig:regimes}
+\end{figure}
+
+A Fig.~\ref{fig:regimes} explica por que, no exemplo de duas variáveis, só a
+direção $x_2$ oscila: com $\alpha = 0{,}9$, a direção $x_1$ (curvatura $0{,}2$) fica
+na região de polos reais, onde não há sobressinal, e a direção $x_2$ (curvatura 4)
+fica na região de polos complexos.
+
+\subsection{O PID do artigo: teoria contra experimento}
+
+\begin{figure}[!htbp]
+  \centering
+  \figura{mapa_pid_artigo}{1.0}{Rode \texttt{python scripts/report\_assets.py}.}
+  \caption{Estabilidade do PID da Eq.~(10) em função da curvatura da direção e de
+  $K_d$ (taxa de aprendizado $0{,}01$, momento $0{,}9$). Cinza: região instável
+  prevista ($\rho \geq 1$). Linha tracejada: onde o termo D não muda a velocidade de
+  convergência; ela separa as regiões em que o termo D acelera ou atrasa em
+  relação ao momento. Os marcadores são os 14 casos do exemplo de duas variáveis.}
+  \label{fig:mapa}
+\end{figure}
+
+\begin{table}[!htbp]
+  \centering\small
+  \caption{Previsão pelo raio espectral $\rho$ contra o comportamento observado no
+  exemplo de duas variáveis. Acomodação: número de passos até ficar a menos de 2\,\%
+  da distância inicial ao mínimo.}
+  \label{tab:validacao}
+  \IfFileExists{tabelas/validacao_toy.tex}{\input{tabelas/validacao_toy.tex}}%
+    {\pendente{rode \texttt{python scripts/report\_assets.py}.}}
+\end{table}
+
+\textbf{O que isso mostra.} A teoria acerta se o algoritmo converge ou diverge em
+\textbf{14 de 14} casos (Tab.~\ref{tab:validacao}), e explica dois fatos que só olhar
+o gráfico não explica:
+\begin{itemize}
+  \item na direção de curvatura alta ($x_2$, polos complexos), o termo D com o sinal
+        trocado amortece a oscilação. Com o sinal do artigo, ele empurra os polos
+        para fora do círculo unitário ($\rho = 1{,}049$ e $1{,}128$), e o algoritmo
+        diverge;
+  \item na direção de curvatura baixa ($x_1$, polos reais), o mesmo termo D que
+        ajuda em $x_2$ \emph{atrasa} a convergência: de 161 para 195 passos. Amortecer
+        um sistema que já não oscila só o deixa mais lento.
+\end{itemize}
+\textbf{Consequência para o projeto:} não existe um único $K_d$ que seja bom para
+todas as direções. Uma rede neural tem milhões de direções com curvaturas muito
+diferentes; esse é um primeiro indicativo de projeto para o PFC.
+
+\FloatBarrier
+\subsection{Margem de estabilidade do PID usado no código}
+
+\begin{figure}[!htbp]
+  \centering
+  \figura{margem_pid_codigo}{1.0}{Rode \texttt{python scripts/report\_assets.py}.}
+  \caption{Maior valor de $h$ (passo $\times$ curvatura) para o qual o PID do código
+  dos autores ainda é estável, em função de $K_d$. Para comparação, o SGD com momento
+  ($\alpha = 0{,}9$) é estável até $h = 3{,}8$.}
+  \label{fig:margem}
+\end{figure}
+
+A Fig.~\ref{fig:margem} mostra o preço do PID do código:
+\begin{itemize}
+  \item mesmo com $K_d = 0$, ele só é estável até $h \approx 0{,}78$, cerca de cinco
+        vezes menos margem que o momento. O motivo é o ganho integral maior ($K_i = 3$);
+  \item com $K_d = 100$, valor dos autores, a margem cai para $h \approx 0{,}15$;
+  \item com $K_d$ negativo, o sinal do texto do artigo, a margem cai ainda mais rápido.
+\end{itemize}
+Em termos de projeto, o termo D \emph{consome} margem de estabilidade.
+
+% =============================================================================
+\section{Diferenças entre o artigo e o código público}
+
+\begin{table}[!htbp]
+  \centering\small
+  \caption{Discrepâncias encontradas durante a replicação.}
+  \label{tab:discrepancias}
+  \begin{tabular}{>{\raggedright}p{2.6cm}>{\raggedright}p{4.3cm}>{\raggedright}p{3.6cm}p{3.6cm}}
+    \toprule
+    Item & Artigo & Código público & Observado aqui \\
+    \midrule
+    Forma da atualização & Eq.~(10): $\theta \leftarrow \theta + V + K_d D$ &
+      $\theta \leftarrow \theta - \text{lr}\,(g + K_i I + K_d D)$ &
+      equivalentes, a menos do sinal de $K_d$ (teste automático) \\
+    Sinal do termo D & soma & subtrai & só o sinal do código amortece (Fig.~\ref{fig:toy}) \\
+    Valor de $K_d$ & Eq.~(14): $\approx 1855$ para lr $=0{,}01$ & efetivo $= 1$ &
+      Eq.~(14) diverge nas 10 sementes \\
+    Tamanho do lote & 128 & 100 & rodamos os dois \\
+    Decaimento de peso & não mencionado & $10^{-4}$ & usado nos dois casos \\
+    Sobressinal, Eq.~(8) & dividido por $\theta^*$ & --- & indefinido com $\theta^* = 0$; normalizamos pela distância inicial \\
+    Material suplementar & citado & --- & não disponível \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% =============================================================================
+\section{Em andamento}
+
+\begin{itemize}
+  \item \textbf{De onde vem a vantagem do PID?} Com um gradiente constante, o PID
+        do código ($K_i = 3$) dá passos 3,1 vezes maiores que o momento de mesma
+        taxa de aprendizado: o ganho DC é $1 + 3/(1-0{,}9) = 31$, contra
+        $1/(1-0{,}9) = 10$. Hipótese: o ganho no MNIST vem desse passo maior, e não da
+        ação PID. Teste: o SGD com momento e taxa de aprendizado $0{,}031$, que tem o
+        mesmo ganho DC.
+        \pendente{resultado do controle de passo equivalente
+        (\texttt{h2\_passo\_equivalente.yaml}).}
+  \item \textbf{A fronteira de estabilidade aparece numa rede real?} Mapeamos a
+        estabilidade no MNIST variando a taxa de aprendizado e o momento, e
+        variando $K_d$ (inclusive negativo). Comparamos com a fronteira prevista pela
+        curvatura máxima da função de erro na inicialização ($\lambda_{\max}$, o
+        maior autovalor da matriz Hessiana).
+        \begin{center}
+        \figura{varredura_lr_momentum}{0.95}{Rode \texttt{sweep.py} com
+        \texttt{mnist\_momentum\_lr.yaml} e depois \texttt{report\_assets.py -{}-sweep-lr}.}
+        \end{center}
+        \begin{center}
+        \figura{varredura_kd}{0.95}{Rode \texttt{sweep.py} com
+        \texttt{mnist\_pid\_kd.yaml} e depois \texttt{report\_assets.py -{}-sweep-kd}.}
+        \end{center}
+  \item \textbf{Testes estatísticos.} Teste $t$ pareado (mesmas sementes) e de Welch
+        para as diferenças da Tab.~\ref{tab:fig4}, em especial PID com e sem o termo D.
+\end{itemize}
+
+% =============================================================================
+\section{Como conferir os resultados}
+
+Todos os números e figuras deste relatório podem ser verificados:
+\begin{enumerate}
+  \item \textbf{Origem.} Cada arquivo de resultado registra o \emph{commit} exato do
+        código, se havia alterações não salvas, o hardware e a configuração. As
+        tabelas geradas trazem essa origem num comentário no próprio \texttt{.tex}.
+  \item \textbf{Auditoria.} O script \texttt{audit\_results.py} recalcula médias e
+        desvios a partir das curvas de cada semente, confere se os valores são
+        válidos e, opcionalmente, \emph{retreina} uma semente e compara época a época
+        com o valor salvo.
+  \item \textbf{Controle negativo.} Com taxa de aprendizado zero, os pesos não mudam,
+        e a acurácia precisa ficar no nível do acaso (cerca de 10\,\%). Isso mostra que a
+        acurácia reportada vem do treino, e não de um erro no cálculo
+        (\texttt{controle\_negativo\_lr0.yaml}).
+  \item \textbf{Comparação externa.} Nossos valores no MNIST são compatíveis com os
+        registros publicados pelos autores (Tab.~\ref{tab:fig4}).
+\end{enumerate}
+
+% =============================================================================
+\section{Próximos passos}
+
+\begin{itemize}
+  \item fechar as análises em andamento e os testes estatísticos;
+  \item estender a mesma análise ao Adam e ao Adam-PID de Dai et al.\ (2023). Como a
+        normalização do Adam é não linear, será preciso linearizar em torno de um
+        ponto de operação;
+  \item mapear sistematicamente as regiões de estabilidade nos hiperparâmetros
+        (objetivo c da proposta) e relacioná-las com a capacidade de generalização.
+\end{itemize}
+
+% =============================================================================
+\begin{thebibliography}{9}
+\bibitem{an2018} W.~An, H.~Wang, Q.~Sun, J.~Xu, Q.~Dai e L.~Zhang.
+  A PID controller approach for stochastic optimization of deep networks.
+  In: \emph{IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  p.~8522--8531, 2018. Código: \url{https://github.com/tensorboy/PIDOptimizer}.
+\bibitem{dai2023} M.~Dai et al.
+  PID controller-based adaptive gradient optimizer for deep neural networks.
+  \emph{IET Control Theory \& Applications}, v.~17, n.~15, p.~2032--2037, 2023.
+\bibitem{astrom} K.~J.~Åström e B.~Wittenmark.
+  \emph{Adaptive Control}. 2.\ ed. Mineola: Dover, 2008.
+\bibitem{wilson2017} A.~C.~Wilson et al.
+  The marginal value of adaptive gradient methods in machine learning.
+  \emph{Advances in Neural Information Processing Systems}, v.~30, 2017.
+\end{thebibliography}
+
+\end{document}

@@ -72,5 +72,11 @@ def test_momentum_regimes():
     assert spectral_radius(momentum_matrix(1.01 * b['instavel'], m)) > 1
 
 
+def test_largest_stable_recovers_momentum_boundary():
+    from optctrl.analysis import largest_stable
+    h = largest_stable(lambda x: spectral_radius(momentum_matrix(x, 0.9)))
+    assert abs(h - 2 * (1 + 0.9)) < 1e-5
+
+
 def test_adaptive_methods_are_not_linear():
     assert closed_loop_matrix('adam', {'lr': 1e-3}, 1.0) is None

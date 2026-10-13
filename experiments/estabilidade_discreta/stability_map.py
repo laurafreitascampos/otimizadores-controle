@@ -33,6 +33,7 @@ import torch  # noqa: E402
 from matplotlib.colors import ListedColormap, TwoSlopeNorm  # noqa: E402
 
 from optctrl.analysis import (  # noqa: E402
+    largest_stable,
     momentum_boundaries,
     momentum_matrix,
     pid_paper_matrix,
@@ -257,9 +258,8 @@ def fig_pid_code(out_dir, lambda_max=None, lr=0.01, wd=1e-4, Kp=1.0, Ki=3.0, m=0
     # margem: maior h estavel em funcao de Kd (vira tabela no README/poster)
     margin = {}
     for kd in [0.0, 30.0, 100.0, 300.0, -30.0, -100.0]:
-        ok = [h for h in np.logspace(-5, 1, 3000)
-              if spectral_radius(pid_separated_matrix(h, m, Kp, Ki, kd)) < 1]
-        margin[kd] = max(ok) if ok else None
+        margin[kd] = largest_stable(
+            lambda h, kd=kd: spectral_radius(pid_separated_matrix(h, m, Kp, Ki, kd)))
     return path, margin
 
 

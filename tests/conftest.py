@@ -6,7 +6,7 @@ import sys
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-for _name in ('train', 'sweep', 'compare_stats'):
+for _name in ('train', 'sweep', 'compare_stats', 'audit_results'):
     _path = os.path.join(_ROOT, 'scripts', f'{_name}.py')
     if not os.path.exists(_path):
         continue

@@ -109,6 +109,24 @@ def simulate(A, x0, steps):
     return np.array(xs)
 
 
+def largest_stable(rho_of, lo=1e-6, hi=10.0, n=600, rtol=1e-7):
+    """Maior x em [lo, hi] com rho_of(x) < 1: varredura logaritmica para achar a
+    ultima faixa estavel e bisseccao para refinar a fronteira (precisao rtol).
+    Retorna None se nenhum ponto for estavel."""
+    xs = np.logspace(np.log10(lo), np.log10(hi), n)
+    stable = np.array([rho_of(x) < 1 for x in xs])
+    if not stable.any():
+        return None
+    i = np.nonzero(stable)[0][-1]
+    if i == n - 1:
+        return float(xs[-1])
+    a, b = xs[i], xs[i + 1]
+    while (b - a) > rtol * a:
+        mid = 0.5 * (a + b)
+        a, b = (mid, b) if rho_of(mid) < 1 else (a, mid)
+    return float(a)
+
+
 def initial_state(theta0, size):
     """Estado inicial com memorias zeradas e g_{-1} = 0 (theta_{-1} = 0),
     exatamente como os otimizadores deste repositorio sao inicializados."""
