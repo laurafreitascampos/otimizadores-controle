@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "optctrl"
+version = "0.1.0"
+description = "Leis de aprendizado de redes neurais sob a otica da teoria de controle (PFC, CEFET-MG)"
+authors = [{ name = "Laura Inês Freitas Campos" }]
+readme = "README.md"
+requires-python = ">=3.10"
+# torch/torchvision: no Windows, instale ANTES a versao com CUDA pelo seletor de
+# pytorch.org; o pip do PyPI no Windows traz so a versao de CPU.
+dependencies = [
+    "torch>=2.2",
+    "torchvision>=0.17",
+    "numpy",
+    "matplotlib",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+energy = ["codecarbon"]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

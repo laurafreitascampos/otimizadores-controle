@@ -1,0 +1,16 @@
+# Figura 4 de An et al. (2018) com os hiperparametros do CODIGO publico
+# (mnist_pid.py / mnist_moment.py): batch 100, 20 epocas.
+name: an2018_fig4_mnist_repo
+dataset: {name: mnist, val_size: 0}
+eval_on: test
+model: {name: mlp, hidden: 1000}
+train: {epochs: 20, batch_size: 100, target: 0.98, clip: 0.0}
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+optimizers:
+  sgd_momentum: {name: sgd, lr: 0.01, momentum: 0.9, weight_decay: 1.0e-4}
+  pid_repo: {name: sgd_pid, lr: 0.01, momentum: 0.9, weight_decay: 1.0e-4,
+             Kp: 1.0, Ki: 3.0, Kd: 100.0}
+  # Mesmo PID sem o termo D: isola a contribuicao do D (hipotese H3 no README)
+  pid_repo_kd0: {name: sgd_pid, lr: 0.01, momentum: 0.9, weight_decay: 1.0e-4,
+                 Kp: 1.0, Ki: 3.0, Kd: 0.0}
