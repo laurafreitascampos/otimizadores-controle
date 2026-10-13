@@ -1,0 +1,21 @@
+# Hipotese H2: a vantagem do PID do codigo no MNIST vem do passo efetivo maior,
+# e nao do controle PID em si.
+#
+# Ganho DC (gradiente constante g, regime permanente):
+#   SGD-Momentum:      passo = lr * g / (1 - m)               = 10 * lr * g     (m = 0.9)
+#   PID (Kp=1, Ki=3):  passo = lr * g * (Kp + Ki / (1 - m))  = 31 * lr * g
+# Com lr = 0.01 o PID anda 0.31*g por passo; um momentum com o MESMO ganho DC
+# precisa de lr = 0.31 * (1 - m) = 0.031.
+#
+# Protocolo IDENTICO ao fig4_mnist_repo.yaml (mesmo lote, epocas, sementes,
+# avaliacao) para que os resultados possam ser juntados no compare_stats.py:
+#   python scripts/compare_stats.py <fig4_repo>/results.json <este>/results.json --ref pid_repo
+name: an2018_h2_passo_equivalente
+dataset: {name: mnist, val_size: 0}
+eval_on: test
+model: {name: mlp, hidden: 1000}
+train: {epochs: 20, batch_size: 100, target: 0.98, clip: 0.0}
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+optimizers:
+  sgd_momentum_lr_eq: {name: sgd, lr: 0.031, momentum: 0.9, weight_decay: 1.0e-4}

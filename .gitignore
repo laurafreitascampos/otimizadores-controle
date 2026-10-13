@@ -6,9 +6,10 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# dados e saídas pesadas
-data/
-results/
+# dados e saídas pesadas (só na raiz: "data/" sem a barra inicial também
+# ignoraria o pacote src/optctrl/data/)
+/data/
+/results/
 *.npz
 *.tar.gz
 *.pt

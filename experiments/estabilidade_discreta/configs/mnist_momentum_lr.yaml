@@ -1,0 +1,20 @@
+# Mapa EMPIRICO de estabilidade do SGD-Momentum no MNIST (MLP 784-1000-10).
+# Pergunta: a fronteira prevista em tempo discreto, lr < 2(1+alpha)/lambda_max,
+# aparece numa rede de verdade, com ruido de mini-lote e nao linearidade?
+# Mapeamento = sintonia: avaliado na VALIDACAO (o teste fica intocado).
+# Custo estimado na GTX 1650: 36 pontos x 2 sementes x 5 epocas ~ 8 min.
+name: mapa_mnist_momentum_lr
+dataset: {name: mnist, val_size: 10000}
+eval_on: val
+model: {name: mlp, hidden: 1000}
+train: {epochs: 5, batch_size: 100}
+seeds: [0, 1]
+rise_tol: 0.10
+hessian: {n_samples: 2000, iters: 100}
+
+sweep:
+  optimizer: sgd
+  fixed: {weight_decay: 1.0e-4}
+  grid:
+    momentum: [0.0, 0.5, 0.9, 0.99]
+    lr: [0.01, 0.03, 0.1, 0.2, 0.3, 0.5, 1.0, 2.0, 5.0]

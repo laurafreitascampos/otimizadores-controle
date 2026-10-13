@@ -1,0 +1,19 @@
+# Varredura do ganho derivativo Kd no PID da forma do codigo publico
+# (Kp=1, Ki=3, lr=0.01, m=0.9, wd=1e-4), INCLUINDO Kd negativo (o sinal do
+# texto do artigo). O mapa analitico (mapa_pid_codigo.png) preve que |Kd|
+# grande consome a margem de estabilidade, e muito mais rapido com Kd < 0.
+# Custo estimado: 11 pontos x 3 sementes x 5 epocas ~ 6 min.
+name: mapa_mnist_pid_kd
+dataset: {name: mnist, val_size: 10000}
+eval_on: val
+model: {name: mlp, hidden: 1000}
+train: {epochs: 5, batch_size: 100}
+seeds: [0, 1, 2]
+rise_tol: 0.10
+hessian: {n_samples: 2000, iters: 100}
+
+sweep:
+  optimizer: sgd_pid
+  fixed: {lr: 0.01, momentum: 0.9, weight_decay: 1.0e-4, Kp: 1.0, Ki: 3.0}
+  grid:
+    Kd: [-300.0, -100.0, -30.0, -10.0, 0.0, 10.0, 30.0, 100.0, 300.0, 1000.0, 3000.0]

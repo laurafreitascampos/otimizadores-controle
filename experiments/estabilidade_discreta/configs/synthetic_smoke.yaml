@@ -1,0 +1,14 @@
+# Teste rapido do pipeline de varredura (dados sinteticos, sem download, CPU).
+name: smoke_sweep
+dataset: {name: synthetic, val_size: 400}
+eval_on: val
+model: {name: mlp, hidden: 32}
+train: {epochs: 4, batch_size: 64}
+seeds: [0, 1]
+hessian: {n_samples: 500, iters: 50}
+sweep:
+  optimizer: sgd
+  fixed: {weight_decay: 1.0e-4}
+  grid:
+    momentum: [0.0, 0.9]
+    lr: [0.01, 0.1, 1.0, 10.0]
